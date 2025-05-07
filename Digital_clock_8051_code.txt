@@ -1,0 +1,131 @@
+/*
+Documentation
+Name        : Vamsi T
+Date        : 6/5/25
+Description : Digital Clock using 8051 Microcontroller
+*/
+
+#include <reg51.h>
+
+// LCD control pins
+sbit rs = P3^0;
+sbit en = P3^1;
+
+// Time variables
+int sec = 0, min = 0, hour = 0;
+
+// Function Prototypes
+void delay_tenms(void);
+void delay_onesec(void);
+void lcddata(int);
+void lcdcmd(int);
+void lcd_init(void);
+void update_timer(void);
+void disp(int, int, int);
+
+// Simple delay
+void delay(int x)
+{
+    int i, j;
+    for (i = 0; i < x; i++)
+    {
+        for (j = 0; j < 1275; j++);
+    }
+}
+
+// LCD Initialization
+void lcd_init()
+{
+    delay(100);
+    lcdcmd(0x38);  // 8-bit, 2-line
+    lcdcmd(0x0C);  // Display ON, cursor OFF
+    lcdcmd(0x01);  // Clear display
+    delay(2);
+}
+
+// Send command to LCD
+void lcdcmd(int c)
+{
+    P2 = c;
+    rs = 0;
+    en = 1;
+    delay(2);
+    en = 0;
+}
+
+// Send data to LCD
+void lcddata(int b)
+{
+    P2 = b;
+    rs = 1;
+    en = 1;
+    delay(2);
+    en = 0;
+}
+
+// 10ms delay using Timer0
+void delay_tenms()
+{
+    TMOD = 0x01;     // Timer0, Mode 1
+    TH0 = 0xDB;
+    TL0 = 0xFF;      // Load value for ~10ms
+    TR0 = 1;         // Start timer
+    while (TF0 == 0); // Wait for overflow
+    TR0 = 0;
+    TF0 = 0;         // Clear overflow
+}
+
+// 1 second delay using 10ms × 100
+void delay_onesec()
+{
+    int i;
+    for (i = 0; i < 100; i++)
+    {
+        delay_tenms();
+    }
+}
+
+// Update time variables
+void update_timer()
+{
+    delay_onesec();
+    sec++;
+    if (sec == 60)
+    {
+        sec = 0;
+        min++;
+    }
+    if (min == 60)
+    {
+        min = 0;
+        hour++;
+    }
+    if (hour == 24)
+    {
+        hour = 0;
+    }
+}
+
+// Display time on LCD
+void disp(int hour, int min, int sec)
+{
+    lcddata((hour / 10) + '0');
+    lcddata((hour % 10) + '0');
+    lcddata(':');
+    lcddata((min / 10) + '0');
+    lcddata((min % 10) + '0');
+    lcddata(':');
+    lcddata((sec / 10) + '0');
+    lcddata((sec % 10) + '0');
+}
+
+void main()
+{
+    lcd_init();
+    while (1)
+    {
+        lcdcmd(0x80);           // Cursor to beginning
+        disp(hour, min, sec);   // Display time
+        update_timer();         // Wait and update
+    }
+}
